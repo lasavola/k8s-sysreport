@@ -120,20 +120,21 @@ case "$sub" in
 
     mkdir -p "$PODROOT/tmp"
 
+    # IMPORTANT: check the 'ls' listing FIRST so it doesn't match the 'dovecot-sysreport' condition
+    if [[ "$run" == *"ls -1t /tmp/dovecot-sysreport-"* ]]; then
+      # List newest tar (strip PODROOT so it looks in-pod)
+      ls -1t "$PODROOT"/tmp/dovecot-sysreport-*.tar.* 2>/dev/null | sed "s|$PODROOT||" | head -n1
+      exit 0
+    fi
+
+    # Produce a dovecot-sysreport tar inside the pod FS
     if [[ "$run" == *"dovecot-sysreport"* ]]; then
-      # Produce a tarball inside PODROOT/tmp
       STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
       OUT="$PODROOT/tmp/dovecot-sysreport-${STAMP}.tar.gz"
       TD="$(mktemp -d)"
       echo "mock dovecot report (pod)" > "$TD/report.txt"
       tar -czf "$OUT" -C "$TD" report.txt
       echo "[kubectl-mock] exec: produced $OUT" >&2
-      exit 0
-    fi
-
-    if [[ "$run" == *"ls -1t /tmp/dovecot-sysreport-"* ]]; then
-      # List newest tar (strip PODROOT so it looks in-pod)
-      ls -1t "$PODROOT"/tmp/dovecot-sysreport-*.tar.* 2>/dev/null | sed "s|$PODROOT||" | head -n1
       exit 0
     fi
 
