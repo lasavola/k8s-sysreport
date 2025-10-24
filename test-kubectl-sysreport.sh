@@ -1,21 +1,22 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-SCRIPT="./kubectl-sysreport.sh"   # or ./dovecot-k8s-sysreport
+SCRIPT="./kubectl-sysreport.sh"
 chmod +x "$SCRIPT"
 
 TMPDIR="$(mktemp -d)"
+OUTDIR="$TMPDIR/out"
+mkdir -p "$OUTDIR"
 export PATH="$TMPDIR:$PATH"
 
+# Mock kubectl binary
 cat > "$TMPDIR/kubectl" <<'EOF'
 #!/usr/bin/env bash
 args="$*"
-
-# Minimal mock behavior for queries used by the script
 if [[ "$args" == *"get pod"* && "$args" == *"jsonpath='{.spec.nodeName}'"* ]]; then
-  echo "mock-node-1"
+  echo "mock-node"
 elif [[ "$args" == *"get pod"* && "$args" == *"jsonpath='{.spec.containers[*].name}'"* ]]; then
-  echo "dovecot sidecar"
+  echo "main sidecar"
 elif [[ "$args" == *"get pod"* && "$args" == *"-o yaml"* ]]; then
   echo "fake pod yaml"
 elif [[ "$args" == *"describe pod"* ]]; then
@@ -34,16 +35,14 @@ fi
 EOF
 chmod +x "$TMPDIR/kubectl"
 
-echo "=== Testing kubectl-sysreport.sh (mock mode) ==="
-# Use new flags instead of positional args
-"$SCRIPT" --namespace default --pod testpod
+echo "=== Testing kubectl-sysreport.sh with mock kubectl ==="
+ARCHIVE_PATH="$("$SCRIPT" --namespace default --pod testpod --out-dir "$OUTDIR")"
 
-OUTFILE=$(ls k8s-sysreport-default-testpod-*.tar.gz 2>/dev/null | tail -n1)
-if [ -f "$OUTFILE" ]; then
-  echo "✔ Archive created: $OUTFILE"
-  tar -tzf "$OUTFILE" | head -n 10
+if [ -f "$ARCHIVE_PATH" ]; then
+  echo "✔ Archive created: $ARCHIVE_PATH"
+  tar -tzf "$ARCHIVE_PATH" | head -n 10
 else
-  echo "✖ Failed: archive not created"
+  echo "✖ Failed: archive not created at $ARCHIVE_PATH"
   exit 1
 fi
 
