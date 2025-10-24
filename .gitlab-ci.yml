@@ -1,0 +1,40 @@
+stages:
+  - test
+
+default:
+  image: debian:stable-slim
+  retry: 0
+  before_script:
+    # Install required packages
+    - apt-get update -qq
+    - apt-get install -y --no-install-recommends bash coreutils tar ca-certificates
+    # Ensure scripts are executable
+    - chmod +x k8s-sysreport.sh kubectl-sysreport.sh || true
+    - chmod +x test-k8s-sysreport.sh test-kubectl-sysreport.sh || true
+    - mkdir -p out
+
+test_k8s_sysreport:
+  stage: test
+  tags:
+    - docker
+  script:
+    - echo "Running k8s-sysreport tests..."
+    - ./test-k8s-sysreport.sh --out-dir out
+  artifacts:
+    when: always
+    expire_in: 1 week
+    paths:
+      - out/
+
+test_kubectl_sysreport:
+  stage: test
+  tags:
+    - docker
+  script:
+    - echo "Running kubectl-sysreport tests..."
+    - ./test-kubectl-sysreport.sh --out-dir out
+  artifacts:
+    when: always
+    expire_in: 1 week
+    paths:
+      - out/
