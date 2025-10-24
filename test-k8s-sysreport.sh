@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Optional --out-dir (default ./out for CI artifact collection)
+OUT_DIR="out"
+if [[ "${1:-}" == "--out-dir" ]]; then
+  OUT_DIR="$2"; shift 2
+fi
+mkdir -p "$OUT_DIR"
+
 SCRIPT="./k8s-sysreport.sh"
 chmod +x "$SCRIPT"
 
@@ -146,7 +153,7 @@ export PODROOT  # for the kubectl mock to know where the "pod fs" lives
 echo "kubectl used: $(command -v kubectl)"
 
 echo "=== Test 1: inside-pod mode (uses mocked dovecot-sysreport) ==="
-OUT1="$("$SCRIPT" --out-dir "$MOCKROOT/out1" | tail -n1)"
+OUT1="$("$SCRIPT" --out-dir "$OUT_DIR/out1" | tail -n1)"
 if [[ -f "$OUT1" ]]; then
   echo "✔ Archive created (inside-pod): $OUT1"
   tar -tzf "$OUT1" | head -n 5
@@ -156,7 +163,7 @@ else
 fi
 
 echo "=== Test 2: kubectl mode (no core) ==="
-OUT2="$("$SCRIPT" --namespace default --pod testpod --out-dir "$MOCKROOT/out2" | tail -n1)"
+OUT2="$("$SCRIPT" --namespace default --pod testpod --out-dir "$OUT_DIR/out2" | tail -n1)"
 if [[ -f "$OUT2" ]]; then
   echo "✔ Archive created (kubectl no-core): $OUT2"
   tar -tzf "$OUT2" | head -n 5
@@ -168,7 +175,7 @@ fi
 echo "=== Test 3: kubectl mode with --core-file ==="
 FAKECORE="$MOCKROOT/core.dovecot.9999"
 echo "fake core" > "$FAKECORE"
-OUT3="$("$SCRIPT" --namespace default --pod testpod --out-dir "$MOCKROOT/out3" --core-file "$FAKECORE" | tail -n1)"
+OUT3="$("$SCRIPT" --namespace default --pod testpod --out-dir "$OUT_DIR/out3" --core-file "$FAKECORE" | tail -n1)"
 if [[ -f "$OUT3" ]]; then
   echo "✔ Archive created (kubectl with core-file): $OUT3"
   tar -tzf "$OUT3" | head -n 5
