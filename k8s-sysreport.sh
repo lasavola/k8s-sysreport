@@ -4,9 +4,9 @@
 #
 # Purpose: Avoid duplicating functionality from dovecot-sysreport.
 #          This script only orchestrates how dovecot-sysreport is executed:
-#            - Inside a pod (default): run dovecot-sysreport (optionally with --core)
-#            - From host via kubectl: copy optional host core into pod, run
-#              dovecot-sysreport there, and copy the resulting archive back.
+#            - Inside a pod (local mode): run dovecot-sysreport (optionally with --core)
+#            - From host via kubectl: optionally copy a host core into the pod,
+#              run dovecot-sysreport there, and copy the resulting archive back.
 #
 # Requirements:
 #   - Inside pod: dovecot-sysreport available in PATH.
@@ -21,7 +21,7 @@ set -euo pipefail
 usage() {
   cat <<EOF
 Usage:
-  Inside a pod:
+  Inside a pod (local mode):
     $0 [--out-dir <path>] [--core-in-pod </tmp/corefile>]
 
   From admin host (kubectl mode):
@@ -32,8 +32,8 @@ Options:
   -n, --namespace <ns>      Namespace of target pod (enables kubectl mode)
   -p, --pod <pod>           Pod name (enables kubectl mode)
   -c, --container <name>    Specific container in the pod (optional)
-      --core-file <path>    Host path to core file; copied into pod before running
-      --core-in-pod <path>  Path to core file that already exists inside the pod
+      --core-file <path>    Host path to core file; copied into pod before running (kubectl mode)
+      --core-in-pod <path>  Path to core file that already exists inside the pod (local mode)
   -h, --help                Show this help
 EOF
   exit 1
@@ -43,7 +43,7 @@ EOF
 [[ $# -eq 0 ]] && usage
 
 # Defaults
-OUT_BASE="$(pwd)"    # Host default; overridden to /tmp in pod mode
+OUT_BASE="$(pwd)"    # Host default; overridden to /tmp in local pod mode
 NS=""                # Namespace (if set -> kubectl mode)
 POD=""               # Pod (if set -> kubectl mode)
 CONTAINER=""         # Optional container name
@@ -120,7 +120,7 @@ if [[ -n "$NS" && -n "$POD" ]]; then
 fi
 
 # ------------------------------------------------------------------------------
-# Mode B: Inside pod
+# Mode B: Inside pod (local mode)
 # ------------------------------------------------------------------------------
 : "${OUT_BASE:=/tmp}"   # In-pod default
 
@@ -139,10 +139,12 @@ else
   log "Running dovecot-sysreport (no core)"
 fi
 
-sh -lc "$DS_CMD" || true
+# Preserve current PATH inside the 'sh -lc' login shell so mocks/tools are found.
+# This is important for tests and minimal containers where PATH might be reduced.
+sh -lc "export PATH=\"$PATH\"; $DS_CMD" || true
 
 # Find the produced archive and copy to OUT_BASE for convenience
-ds_archive="$(sh -lc "$find_ds_archive_cmd" | tr -d '\r' || true)"
+ds_archive="$(sh -lc "export PATH=\"$PATH\"; $find_ds_archive_cmd" | tr -d '\r' || true)"
 [[ -n "$ds_archive" && -f "$ds_archive" ]] || { echo "dovecot-sysreport archive not found inside pod" >&2; exit 1; }
 
 mkdir -p "$OUT_BASE"
