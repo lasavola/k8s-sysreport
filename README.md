@@ -34,7 +34,7 @@ It simply orchestrates *how* the report is run and optionally transfers core dum
 Run when you already have a shell in the Dovecot container:
 
 ```bash
-curl -O https://example.com/k8s-sysreport.sh
+curl -O https://github.com/dovecot/k8s-sysreport/k8s-sysreport.sh
 chmod +x k8s-sysreport.sh
 
 # Basic usage (no core)
@@ -145,7 +145,7 @@ Useful for identifying cluster-level or scheduling issues.
 ### Usage
 
 ```bash
-curl -O https://example.com/kubectl-sysreport.sh
+curl -O https://github.com/dovecot/k8s-sysreport.sh
 chmod +x kubectl-sysreport.sh
 
 ./kubectl-sysreport.sh   --namespace mail   --pod dovecot-backend-0   --out-dir /tmp/reports
